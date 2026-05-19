@@ -8,11 +8,17 @@
     {
       "matches": ["https://chatgpt.com/*", "https://claude.ai/*"],
       "js": ["content.js"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["matcher.js"],
+      "css": ["toast.css"]
     }
   ],
   "action": {
     "default_popup": "popup.html"
   },
+  "options_page": "options.html",
   "background": {
     "service_worker": "background.js"
   }
