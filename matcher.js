@@ -78,3 +78,55 @@ const observer = new MutationObserver(attachListeners);
 observer.observe(document.body, { childList: true, subtree: true });
 
 attachListeners();
+
+function showToast(entry, targetInput) {
+  dismissToast(); // clear any existing toast first
+
+  const toast = document.createElement("div");
+  toast.id = "pm-toast";
+  toast.innerHTML = `
+    <span> Saved context:</span>
+    <span class="pm-preview">${entry.text.slice(0, 80)}…</span>
+    <button class="pm-accept">Inject</button>
+    <button class="pm-dismiss">Dismiss</button>
+  `;
+
+  document.body.appendChild(toast);
+
+  // trigger slide-in animation
+  requestAnimationFrame(() => toast.classList.add("visible"));
+
+  // auto-dismiss after 8 seconds
+  const autoDismiss = setTimeout(dismissToast, 8000);
+
+  toast.querySelector(".pm-accept").addEventListener("click", () => {
+    injectContext(entry.text, targetInput);
+    clearTimeout(autoDismiss);
+    dismissToast();
+  });
+
+  toast.querySelector(".pm-dismiss").addEventListener("click", () => {
+    clearTimeout(autoDismiss);
+    dismissToast();
+    lastSuggestionText = null; // allow re-suggesting later
+  });
+}
+
+function dismissToast() {
+  const existing = document.getElementById("pm-toast");
+  if (existing) existing.remove();
+}
+
+function injectContext(contextText, targetInput) {
+  const prefix = `[Context from a previous conversation:\n${contextText}]\n\n`;
+
+  // handle both regular inputs and contenteditable divs (like Claude's input)
+  if (targetInput.tagName === "TEXTAREA" || targetInput.tagName === "INPUT") {
+    targetInput.value = prefix + targetInput.value;
+  } else {
+    targetInput.innerText = prefix + targetInput.innerText;
+  }
+
+  // fire an input event so the site's React/Vue state updates
+  targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+}
