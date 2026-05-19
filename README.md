@@ -1,4 +1,4 @@
-Prompt Memory
+Prompt Memory:
 A Chrome extension that passively captures your AI conversations and surfaces relevant saved context when you start a related conversation so you never lose the thread of a previous session.
 Built with vanilla JavaScript and Chrome's Manifest V3 extension APIs.
 
