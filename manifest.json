@@ -7,7 +7,7 @@
   "content_scripts": [
     {
       "matches": ["https://chatgpt.com/*", "https://claude.ai/*"],
-      "js": ["capture.js", "matcher.js"],
+      "js": ["content.js", "matcher.js"],
       "css": ["toast.css"]
     }
   ],

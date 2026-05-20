@@ -5,13 +5,13 @@ const MIN_INPUT_LENGTH = 40; // don't trigger on short inputs
 let debounceTimer = null;
 let lastSuggestionText = null; // avoid re-suggesting the same entry
 
-// Tokenize text into meaningful keywords
+
 function tokenize(text) {
   return text
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, "")
     .split(/\s+/)
-    .filter(word => word.length > 3); // drop "the", "and", "is", etc.
+    .filter(word => word.length > 3); 
 }
 
 // Count how many keywords overlap between input and a saved entry
@@ -51,8 +51,15 @@ function handleInput(e) {
 
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    chrome.storage.local.get(["entries"], (result) => {
-      const entries = result.entries || [];
+    chrome.storage.local.get(["entries", "contextScope"], (result) => {
+      let entries = result.entries || [];
+      const scope = result.contextScope || "cross";
+
+      // if per-AI mode, only use entries from the current site
+      if (scope === "per") {
+        entries = entries.filter(e => e.source === window.location.hostname);
+      }
+
       const match = findBestMatch(text, entries);
 
       if (match && match.text !== lastSuggestionText) {
@@ -74,8 +81,8 @@ function attachListeners() {
 }
 
 // Re-run attachListeners when new inputs appear 
-const observer = new MutationObserver(attachListeners);
-observer.observe(document.body, { childList: true, subtree: true });
+const matcherObserver = new MutationObserver(attachListeners);
+matcherObserver.observe(document.body, { childList: true, subtree: true });
 
 attachListeners();
 
