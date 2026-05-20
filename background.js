@@ -1,3 +1,27 @@
+const FULL_LIMIT = 75;      
+const CONDENSE_LIMIT = 125; 
+
+
+function applyTiers(entries) {
+ 
+
+  return entries
+    .slice(-(CONDENSE_LIMIT)) // delete anything beyond 125 total
+    .map((entry, index, arr) => {
+      const positionFromNewest = arr.length - 1 - index;
+
+     
+      if (positionFromNewest <= FULL_LIMIT) return entry;
+
+     
+      return {
+        ...entry,
+        text: entry.text.slice(0, 300),
+        condensed: true
+      };
+    });
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "SAVE_ENTRY") {
     const entry = message.payload;
@@ -11,11 +35,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       entries.push(entry);
 
-      // cap at 200 saved entries so storage doesn't bloat
-      const trimmed = entries.slice(-200);
+      const tiered = applyTiers(entries);
 
-      chrome.storage.local.set({ entries: trimmed }, () => {
-        console.log("Saved entry. Total:", trimmed.length);
+      chrome.storage.local.set({ entries: tiered }, () => {
+        const condensedCount = tiered.filter(e => e.condensed).length;
+        console.log(`Prompt Memory saved (${entry.role}). Total: ${tiered.length}, condensed: ${condensedCount}`);
       });
     });
   }
