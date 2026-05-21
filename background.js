@@ -16,7 +16,7 @@ function applyTiers(entries) {
      
       return {
         ...entry,
-        text: entry.text.slice(0, 300),
+        text: condenseEntry(entry.text),
         condensed: true
       };
     });

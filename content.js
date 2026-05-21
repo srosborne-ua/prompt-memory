@@ -44,6 +44,6 @@ function extractMessages() {
   });
 }
 
-const observer = new MutationObserver(() => extractMessages());
-observer.observe(document.body, { childList: true, subtree: true });
+const contentObserver = new MutationObserver(() => extractMessages());
+contentObserver.observe(document.body, { childList: true, subtree: true });
 extractMessages();

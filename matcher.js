@@ -1,10 +1,20 @@
-const MATCH_THRESHOLD = 3; // how many keywords must overlap to trigger
-const DEBOUNCE_MS = 600;   // wait until user pauses typing
-const MIN_INPUT_LENGTH = 40; // don't trigger on short inputs
+const MATCH_THRESHOLD = 3;
+const DEBOUNCE_MS = 600;   
+const MIN_INPUT_LENGTH = 40; 
+const SUGGESTION_COOLDOWN_MS = 60000; // same entry won't resurface for 60 seconds
+
 
 let debounceTimer = null;
 let lastSuggestionText = null; // avoid re-suggesting the same entry
+let lastSuggestionTime = 0;
+let sessionMessageCount = 0;
+let toastShownThisSession = false;
 
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "SESSION_COUNT") {
+    sessionMessageCount = message.payload;
+  }
+});
 
 function tokenize(text) {
   return text
@@ -44,6 +54,8 @@ function handleInput(e) {
   const input = e.target;
   const text = input.value || input.innerText || "";
 
+  if (sessionMessageCount > 0 || toastShownThisSession) return;
+
   if (text.length < MIN_INPUT_LENGTH) {
     dismissToast();
     return;
@@ -55,16 +67,22 @@ function handleInput(e) {
       let entries = result.entries || [];
       const scope = result.contextScope || "cross";
 
-      // if per-AI mode, only use entries from the current site
-      if (scope === "per") {
+    if (scope === "per") {
         entries = entries.filter(e => e.source === window.location.hostname);
       }
 
       const match = findBestMatch(text, entries);
+      if (match) {
+        const now = Date.now();
+        const isSameEntry = match.text === lastSuggestionText;
+        const isCoolingDown = (now - lastSuggestionTime) < SUGGESTION_COOLDOWN_MS;
 
-      if (match && match.text !== lastSuggestionText) {
-        lastSuggestionText = match.text;
-        showToast(match, input);
+        if (!(isSameEntry && isCoolingDown)) {
+          lastSuggestionText = match.text;
+          lastSuggestionTime = now;
+          toastShownThisSession = true;
+          showToast(match, input);
+        }
       }
     });
   }, DEBOUNCE_MS);
