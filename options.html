@@ -1,18 +1,23 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="UTF-8">
     <style>
-      body { width: 320px; padding: 24px; font-family: sans-serif; font-size: 14px; }
+      body { width: 340px; padding: 24px; font-family: sans-serif; font-size: 14px; }
       h2 { margin: 0 0 20px; font-size: 16px; }
-      label { display: block; margin-bottom: 6px; color: #555; }
+      label { display: block; margin-bottom: 6px; color: #555; font-size: 13px; }
+      input[type="text"],
       input[type="password"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; box-sizing: border-box; }
       button { margin-top: 12px; padding: 8px 16px; background: #4f8ef7; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
       button:hover { background: #3a7de0; }
       .confirm { color: green; margin-top: 8px; display: none; font-size: 12px; }
       .section { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #eee; }
+      .section:last-child { border-bottom: none; }
       .radio-group { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
       .radio-group label { display: flex; align-items: center; gap: 8px; color: #333; cursor: pointer; margin: 0; }
-      .radio-group span { font-size: 12px; color: #888; display: block; margin-left: 22px; }
+      .hint { font-size: 11px; color: #999; margin-top: 6px; line-height: 1.5; }
+      .hint a { color: #4f8ef7; text-decoration: none; }
+      .badge { font-size: 10px; background: #e8f0fe; color: #4f8ef7; padding: 2px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
     </style>
   </head>
   <body>
@@ -25,16 +30,42 @@
           <input type="radio" name="scope" value="cross" />
           Cross-AI
         </label>
-        <span>Context follows you between ChatGPT and Claude</span>
         <label>
           <input type="radio" name="scope" value="per" />
           Per AI
         </label>
-        <span>ChatGPT and Claude stay separate</span>
       </div>
+      <p class="hint">Cross-AI lets context follow you between ChatGPT and Claude. Per-AI keeps them separate.</p>
     </div>
 
-    
+    <div class="section">
+      <label>Matching Mode</label>
+      <div class="radio-group">
+        <label>
+          <input type="radio" name="matchMode" value="keyword" />
+          Keyword matching <span class="badge">default</span>
+        </label>
+        <label>
+          <input type="radio" name="matchMode" value="embedding" />
+          Semantic matching (requires API key)
+        </label>
+      </div>
+      <p class="hint">Semantic matching understands meaning, not just words. "Login system" will match "authentication" for example.</p>
+    </div>
+
+    <div class="section">
+      <label>API Key <span style="font-weight:normal; color:#999">(optional)</span></label>
+      <input type="password" id="apiKey" placeholder="Paste your API key..." />
+      <p class="hint">
+        We recommend <a href="https://cohere.com" target="_blank">Cohere</a> — free tier available, no credit card needed for access.
+        Any provider with a summarization and embeddings endpoint works.
+      </p>
+      <label style="margin-top:12px">API Endpoint <span style="font-weight:normal; color:#999">(optional — leave blank for Cohere)</span></label>
+      <input type="text" id="apiEndpoint" placeholder="api key" />
+      <button id="saveKey">Save</button>
+      <p class="confirm" id="keyConfirm">✓ Saved</p>
+    </div>
+
     <script src="options.js"></script>
   </body>
 </html>
