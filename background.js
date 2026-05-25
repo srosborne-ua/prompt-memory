@@ -2,8 +2,6 @@ const FULL_LIMIT = 75;
 const CONDENSE_LIMIT = 125;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-// ─── Keyword condensing (no API) ───────────────────────────────────────────
-
 const STOPWORDS = new Set([
   "this", "that", "with", "from", "they", "them", "their", "there",
   "have", "will", "would", "could", "should", "about", "which", "when",
@@ -43,11 +41,9 @@ function condenseEntry(text) {
   return `${head.trimEnd()}… | keywords: ${keywords.join(", ")}`;
 }
 
-// ─── API: summarize via Cohere chat ────────────────────────────────────────
-// Guards against re-summarizing entries that are already summaries.
-
 async function summarizeWithCohere(text, apiKey) {
   try {
+    console.log("Prompt Memory: calling Cohere API...");
     const response = await fetch("https://api.cohere.com/v2/chat", {
       method: "POST",
       headers: {
@@ -74,37 +70,29 @@ async function summarizeWithCohere(text, apiKey) {
     });
 
     if (!response.ok) {
-      console.warn("Prompt Memory: Cohere summarization error", response.status);
+      const errorBody = await response.text();
+      console.warn("Prompt Memory: Cohere error", response.status, errorBody);
       return null;
     }
 
     const data = await response.json();
-    // Cohere v2 chat response: data.message.content[0].text
-    return data.message?.content?.[0]?.text?.trim() || null;
-
+    console.log("Prompt Memory: Cohere raw response", data);
+    console.log("Prompt Memory: content items", data.message?.content?.map(c => c));
+return data.message?.content?.[1]?.text?.trim() || data.message?.content?.[0]?.text?.trim() || null;
   } catch (err) {
     console.warn("Prompt Memory: Cohere summarization failed, falling back", err);
     return null;
   }
 }
 
-// ─── Tiered storage ────────────────────────────────────────────────────────
-
 function applyTiers(entries, keywordCondensing = true) {
   return entries
     .slice(-CONDENSE_LIMIT)
     .map((entry, index, arr) => {
       const positionFromNewest = arr.length - 1 - index;
-
-      // Recent entries kept verbatim
       if (positionFromNewest <= FULL_LIMIT) return entry;
-
-      // Already API-summarized — never re-process
       if (entry.summarized) return entry;
-
-      // Keyword condensing is off — keep full text
       if (!keywordCondensing) return entry;
-
       return {
         ...entry,
         text: condenseEntry(entry.text),
@@ -113,15 +101,11 @@ function applyTiers(entries, keywordCondensing = true) {
     });
 }
 
-// ─── Nudge logic ───────────────────────────────────────────────────────────
-
 function shouldShowNudge(lastNudgeTime, apiKey) {
   if (apiKey) return false;
   if (!lastNudgeTime) return true;
   return (Date.now() - lastNudgeTime) > SEVEN_DAYS_MS;
 }
-
-// ─── Message handler ───────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
@@ -137,7 +121,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       async (result) => {
       const entries = result.entries || [];
       const apiKey = result.apiKey || null;
-      // summarizationEnabled defaults to true if a key is present and the pref hasn't been set yet
       const summarizationEnabled = result.summarizationEnabled !== undefined
         ? result.summarizationEnabled
         : true;
@@ -145,17 +128,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         ? result.keywordCondensing
         : true;
 
-      // Avoid exact duplicates
       const isDuplicate = entries.some((e) => e.text === entry.text);
       if (isDuplicate) return;
 
-      // Only summarize if:
-      //   1. An API key is stored
-      //   2. The summarization toggle is on
-      //   3. This entry hasn't already been summarized (prevents summary-of-summary loops)
+      console.log("Prompt Memory: summarization check", {
+        hasKey: !!apiKey,
+        summarizationEnabled,
+        alreadySummarized: entry.summarized
+      });
+
       if (apiKey && summarizationEnabled && !entry.summarized) {
         const summary = await summarizeWithCohere(entry.text, apiKey);
         if (summary) {
+          console.log("Prompt Memory: summarized!", {
+            original: entry.text.slice(0, 100) + "...",
+            summary
+          });
           entry.text = summary;
           entry.summarized = true;
         }
@@ -184,7 +172,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       sendResponse({ show });
     });
-    return true; // keep channel open for async sendResponse
+    return true;
   }
 
 });
