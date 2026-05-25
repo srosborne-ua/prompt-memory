@@ -43,87 +43,67 @@ function condenseEntry(text) {
   return `${head.trimEnd()}… | keywords: ${keywords.join(", ")}`;
 }
 
-// ─── API: summarize via Cohere (or compatible provider) ────────────────────
+// ─── API: summarize via Cohere chat ────────────────────────────────────────
+// Guards against re-summarizing entries that are already summaries.
 
-async function summarizeWithAPI(text, apiKey, apiEndpoint) {
+async function summarizeWithCohere(text, apiKey) {
   try {
-    const endpoint = apiEndpoint || "https://api.cohere.com/v1/summarize";
-
-    const response = await fetch(endpoint, {
+    const response = await fetch("https://api.cohere.com/v2/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        text,
-        length: "short",        // cohere: short | medium | long
-        format: "paragraph",
-        extractiveness: "auto"
+        model: "command-a-plus-05-2026",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a concise summarization assistant. " +
+              "When given a piece of conversation text, produce a single short paragraph (2–4 sentences) " +
+              "that captures the key topic, intent, and any important details. " +
+              "Never include preamble like 'Here is a summary' — output only the summary text itself."
+          },
+          {
+            role: "user",
+            content: `Summarize the following conversation message:\n\n${text}`
+          }
+        ]
       })
     });
 
     if (!response.ok) {
-      console.warn("Prompt Memory: summarization API error", response.status);
+      console.warn("Prompt Memory: Cohere summarization error", response.status);
       return null;
     }
 
     const data = await response.json();
-
-    // Cohere returns data.summary — other providers may differ
-    return data.summary || data.text || null;
-
-  } catch (err) {
-    console.warn("Prompt Memory: summarization failed, falling back", err);
-    return null;
-  }
-}
-
-// ─── API: embed via Cohere (or compatible provider) ────────────────────────
-
-async function getEmbedding(text, apiKey, apiEndpoint) {
-  try {
-    const endpoint = apiEndpoint || "https://api.cohere.com/v1/embed";
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        texts: [text],
-        model: "embed-english-v3.0",  // cohere default — swap for other providers
-        input_type: "search_document"
-      })
-    });
-
-    if (!response.ok) {
-      console.warn("Prompt Memory: embedding API error", response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    return data.embeddings?.[0] || null;
+    // Cohere v2 chat response: data.message.content[0].text
+    return data.message?.content?.[0]?.text?.trim() || null;
 
   } catch (err) {
-    console.warn("Prompt Memory: embedding failed", err);
+    console.warn("Prompt Memory: Cohere summarization failed, falling back", err);
     return null;
   }
 }
 
 // ─── Tiered storage ────────────────────────────────────────────────────────
 
-function applyTiers(entries) {
+function applyTiers(entries, keywordCondensing = true) {
   return entries
     .slice(-CONDENSE_LIMIT)
     .map((entry, index, arr) => {
       const positionFromNewest = arr.length - 1 - index;
 
+      // Recent entries kept verbatim
       if (positionFromNewest <= FULL_LIMIT) return entry;
 
-      // only keyword-condense if not already API-summarized
+      // Already API-summarized — never re-process
       if (entry.summarized) return entry;
+
+      // Keyword condensing is off — keep full text
+      if (!keywordCondensing) return entry;
 
       return {
         ...entry,
@@ -136,8 +116,8 @@ function applyTiers(entries) {
 // ─── Nudge logic ───────────────────────────────────────────────────────────
 
 function shouldShowNudge(lastNudgeTime, apiKey) {
-  if (apiKey) return false; // already have a key
-  if (!lastNudgeTime) return true; // never shown
+  if (apiKey) return false;
+  if (!lastNudgeTime) return true;
   return (Date.now() - lastNudgeTime) > SEVEN_DAYS_MS;
 }
 
@@ -146,42 +126,52 @@ function shouldShowNudge(lastNudgeTime, apiKey) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "OPEN_OPTIONS") {
-  chrome.runtime.openOptionsPage();
-}
+    chrome.runtime.openOptionsPage();
+  }
+
   if (message.type === "SAVE_ENTRY") {
     const entry = message.payload;
 
-    chrome.storage.local.get(["entries", "apiKey", "apiEndpoint"], async (result) => {
+    chrome.storage.local.get(
+      ["entries", "apiKey", "summarizationEnabled", "keywordCondensing"],
+      async (result) => {
       const entries = result.entries || [];
       const apiKey = result.apiKey || null;
-      const apiEndpoint = result.apiEndpoint || null;
+      // summarizationEnabled defaults to true if a key is present and the pref hasn't been set yet
+      const summarizationEnabled = result.summarizationEnabled !== undefined
+        ? result.summarizationEnabled
+        : true;
+      const keywordCondensing = result.keywordCondensing !== undefined
+        ? result.keywordCondensing
+        : true;
 
-      // avoid exact duplicates
+      // Avoid exact duplicates
       const isDuplicate = entries.some((e) => e.text === entry.text);
       if (isDuplicate) return;
 
-      // if API key is set — summarize and embed before saving
-      if (apiKey) {
-        const summary = await summarizeWithAPI(entry.text, apiKey, apiEndpoint);
+      // Only summarize if:
+      //   1. An API key is stored
+      //   2. The summarization toggle is on
+      //   3. This entry hasn't already been summarized (prevents summary-of-summary loops)
+      if (apiKey && summarizationEnabled && !entry.summarized) {
+        const summary = await summarizeWithCohere(entry.text, apiKey);
         if (summary) {
           entry.text = summary;
           entry.summarized = true;
-        }
-
-        const embedding = await getEmbedding(entry.text, apiKey, apiEndpoint);
-        if (embedding) {
-          entry.embedding = embedding;
         }
       }
 
       entries.push(entry);
 
-      const tiered = applyTiers(entries);
+      const tiered = applyTiers(entries, keywordCondensing);
 
       chrome.storage.local.set({ entries: tiered }, () => {
         const condensedCount = tiered.filter(e => e.condensed).length;
         const summarizedCount = tiered.filter(e => e.summarized).length;
-        console.log(`Prompt Memory saved (${entry.role}). Total: ${tiered.length}, condensed: ${condensedCount}, summarized: ${summarizedCount}`);
+        console.log(
+          `Prompt Memory saved (${entry.role}). ` +
+          `Total: ${tiered.length}, condensed: ${condensedCount}, summarized: ${summarizedCount}`
+        );
       });
     });
   }

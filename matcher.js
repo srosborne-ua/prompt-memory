@@ -2,7 +2,7 @@ const MATCH_THRESHOLD = 3;
 const DEBOUNCE_MS = 600;
 const MIN_INPUT_LENGTH = 40;
 const SUGGESTION_COOLDOWN_MS = 60000;
-const NUDGE_CHECK_DELAY_MS = 15000; // check nudge 15 seconds after page load
+const NUDGE_CHECK_DELAY_MS = 15000;
 
 let debounceTimer = null;
 let lastSuggestionText = null;
@@ -33,58 +33,7 @@ function scoreMatch(inputTokens, entryText) {
   return inputTokens.filter(token => entryTokens.has(token)).length;
 }
 
-// ─── Embedding matching ────────────────────────────────────────────────────
-
-function cosineSimilarity(a, b) {
-  let dot = 0, normA = 0, normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-}
-
-async function getQueryEmbedding(text, apiKey, apiEndpoint) {
-  try {
-    const endpoint = apiEndpoint || "https://api.cohere.com/v1/embed";
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        texts: [text],
-        model: "embed-english-v3.0",
-        input_type: "search_query" // query vs document — cohere distinguishes these
-      })
-    });
-    const data = await response.json();
-    return data.embeddings?.[0] || null;
-  } catch {
-    return null;
-  }
-}
-
-function findBestMatchByEmbedding(queryEmbedding, entries) {
-  let best = null;
-  let bestScore = 0;
-
-  entries.forEach(entry => {
-    if (!entry.embedding) return;
-    const score = cosineSimilarity(queryEmbedding, entry.embedding);
-    if (score > bestScore) {
-      bestScore = score;
-      best = entry;
-    }
-  });
-
-  // cosine similarity threshold — 0.75 is a good starting point
-  return bestScore >= 0.75 ? best : null;
-}
-
-function findBestMatchByKeyword(inputText, entries) {
+function findBestMatch(inputText, entries) {
   const inputTokens = tokenize(inputText);
   if (inputTokens.length < 3) return null;
 
@@ -116,31 +65,15 @@ function handleInput(e) {
 
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    chrome.storage.local.get(["entries", "contextScope", "apiKey", "apiEndpoint"], async (result) => {
+    chrome.storage.local.get(["entries", "contextScope"], (result) => {
       let entries = result.entries || [];
       const scope = result.contextScope || "cross";
-      const apiKey = result.apiKey || null;
-      const apiEndpoint = result.apiEndpoint || null;
 
       if (scope === "per") {
         entries = entries.filter(e => e.source === window.location.hostname);
       }
 
-      let match = null;
-
-      // use embedding matching if API key is set and entries have embeddings
-      const hasEmbeddings = entries.some(e => e.embedding);
-      if (apiKey && hasEmbeddings) {
-        const queryEmbedding = await getQueryEmbedding(text, apiKey, apiEndpoint);
-        if (queryEmbedding) {
-          match = findBestMatchByEmbedding(queryEmbedding, entries);
-        }
-      }
-
-      // fall back to keyword matching
-      if (!match) {
-        match = findBestMatchByKeyword(text, entries);
-      }
+      const match = findBestMatch(text, entries);
 
       if (match) {
         const now = Date.now();
@@ -176,7 +109,7 @@ attachListeners();
 // ─── API key nudge ─────────────────────────────────────────────────────────
 
 setTimeout(() => {
-  if (toastShownThisSession) return; // don't compete with context toast
+  if (toastShownThisSession) return;
   chrome.runtime.sendMessage({ type: "CHECK_NUDGE" }, (response) => {
     if (response?.show) showNudgeToast();
   });
@@ -229,9 +162,6 @@ function showToast(entry, targetInput) {
   });
 }
 
- 
-
-
 function showNudgeToast() {
   const existing = document.getElementById("pm-nudge");
   if (existing) return;
@@ -240,7 +170,7 @@ function showNudgeToast() {
   const nudge = document.createElement("div");
   nudge.id = "pm-nudge";
   nudge.innerHTML = `
-    <span>⚡ Prompt Memory works better with an API key — enables smart matching and auto-summarization.</span>
+    <span>⚡ Prompt Memory works better with a Cohere API key — enables smart AI summarization.</span>
     <span class="pm-countdown">${DURATION}s</span>
     <button id="pm-nudge-open">Set up</button>
     <button id="pm-nudge-dismiss">Maybe later</button>
@@ -285,13 +215,11 @@ function dismissToast() {
 function injectContext(contextText, targetInput) {
   const prefix = `[Context from a previous conversation:\n${contextText}]\n\n`;
 
-  
   if (targetInput.tagName === "TEXTAREA" || targetInput.tagName === "INPUT") {
     targetInput.value = prefix + targetInput.value;
   } else {
     targetInput.innerText = prefix + targetInput.innerText;
   }
 
-  
   targetInput.dispatchEvent(new Event("input", { bubbles: true }));
 }

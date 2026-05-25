@@ -18,11 +18,28 @@
       .hint { font-size: 11px; color: #999; margin-top: 6px; line-height: 1.5; }
       .hint a { color: #4f8ef7; text-decoration: none; }
       .badge { font-size: 10px; background: #e8f0fe; color: #4f8ef7; padding: 2px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+
+      /* Toggle switch */
+      .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+      .toggle-row span { font-size: 13px; color: #333; }
+      .toggle { position: relative; display: inline-block; width: 38px; height: 22px; }
+      .toggle input { opacity: 0; width: 0; height: 0; }
+      .slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; border-radius: 22px; transition: 0.2s; }
+      .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.2s; }
+      input:checked + .slider { background: #4f8ef7; }
+      input:checked + .slider:before { transform: translateX(16px); }
+
+      /* Status chip */
+      .status-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 3px 8px; border-radius: 10px; margin-top: 8px; }
+      .status-chip.connected { background: #e6f4ea; color: #1e7e34; }
+      .status-chip.disconnected { background: #fce8e6; color: #c5221f; }
+      .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     </style>
   </head>
   <body>
     <h2>Prompt Memory Settings</h2>
 
+    <!-- Context Scope -->
     <div class="section">
       <label>Context Scope</label>
       <div class="radio-group">
@@ -38,32 +55,44 @@
       <p class="hint">Cross-AI lets context follow you between ChatGPT and Claude. Per-AI keeps them separate.</p>
     </div>
 
+    <!-- Cohere API Key -->
     <div class="section">
-      <label>Matching Mode</label>
-      <div class="radio-group">
-        <label>
-          <input type="radio" name="matchMode" value="keyword" />
-          Keyword matching <span class="badge">default</span>
-        </label>
-        <label>
-          <input type="radio" name="matchMode" value="embedding" />
-          Semantic matching (requires API key)
-        </label>
+      <label>Cohere API Key <span style="font-weight:normal; color:#999">(optional)</span></label>
+      <input type="password" id="apiKey" placeholder="Paste your Cohere API key…" />
+      <div id="keyStatus" class="status-chip disconnected" style="display:none">
+        <span class="dot"></span>
+        <span id="keyStatusText">No key saved</span>
       </div>
-      <p class="hint">Semantic matching understands meaning, not just words. "Login system" will match "authentication" for example.</p>
+      <p class="hint">
+        Get a free key at <a href="https://dashboard.cohere.com/api-keys" target="_blank">dashboard.cohere.com</a> — no credit card needed.
+        Used for AI-powered summarization of your saved messages.
+      </p>
+      <button id="saveKey">Save Key</button>
+      <p class="confirm" id="keyConfirm">✓ Saved</p>
     </div>
 
+    <!-- Summarization Toggle -->
     <div class="section">
-      <label>API Key <span style="font-weight:normal; color:#999">(optional)</span></label>
-      <input type="password" id="apiKey" placeholder="Paste your API key..." />
+      <label>AI Summarization <span class="badge">Cohere</span></label>
+      <div class="toggle-row">
+        <span>Summarize saved messages with Cohere</span>
+        <label class="toggle">
+          <input type="checkbox" id="summarizationEnabled" />
+          <span class="slider"></span>
+        </label>
+      </div>
       <p class="hint">
-        We recommend <a href="https://cohere.com" target="_blank">Cohere</a> — free tier available, no credit card needed for access.
-        Any provider with a summarization and embeddings endpoint works.
+        When enabled, long messages are summarized by Cohere's <strong>command-a-plus-05-2026</strong> model before saving.
+        Requires an API key above. Without a key, Prompt Memory falls back to keyword-based shortening.
       </p>
-      <label style="margin-top:12px">API Endpoint <span style="font-weight:normal; color:#999">(optional — leave blank for Cohere)</span></label>
-      <input type="text" id="apiEndpoint" placeholder="api key" />
-      <button id="saveKey">Save</button>
-      <p class="confirm" id="keyConfirm">✓ Saved</p>
+      <div class="toggle-row" style="margin-top: 14px;">
+        <span>Keyword shortening (no API)</span>
+        <label class="toggle">
+          <input type="checkbox" id="keywordCondensing" />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <p class="hint">Trims older messages to a short excerpt + keywords. Always available, no API key needed.</p>
     </div>
 
     <script src="options.js"></script>
