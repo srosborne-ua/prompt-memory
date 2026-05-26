@@ -16,7 +16,7 @@ One click and your previous context is apended to your new message
 Features:
 Passive capture: saves your prompts automatically as you chat, no manual action needed
 Keyword matching: compares what you're currently typing against saved entries using token overlap scoring
-AI summarization: condenses saved AI responses via the Anthropic API before storing them, keeping context lean and useful
+AI summarization: condenses saved AI responses via cohere before storing them, keeping context lean and useful
 Non-intrusive UI: a minimal toast notification that auto-dismisses after 8 seconds if ignored
 One-click injection: apends saved context directly into the active input field
 Persistent storage: saved entries survive browser restarts via chrome.storage.local
@@ -25,8 +25,6 @@ Scoped to AI sites: only activates on claude.ai and chatgpt.com, not every site 
 
 Tech stack:
 Chrome Extension Manifest V3: service workers, content scripts, declarative permissions
-Vanilla JavaScript: no framework dependencies
-MutationObserver API: detects new messages in dynamically rendered chat UIs
-chrome.storage.local: persistent local key-value storage, no backend required
-CSS animations — toast slide-in/out transitions
-
+Vanilla JavaScript
+Css
+Html
