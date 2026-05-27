@@ -25,7 +25,7 @@ Scoped to AI sites: only activates on claude.ai and chatgpt.com, not every site 
 
 
 Tech stack:
-Chrome Extension Manifest V3: service workers, content scripts, declarative permissions
+Chrome Extension Manifest V3
 Vanilla JavaScript
 Css
 Html
