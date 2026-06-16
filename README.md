@@ -5,6 +5,7 @@ Built with vanilla JavaScript and Chrome's Manifest V3 extension APIs.
 
 What it does:
 When you chat on Claude or ChatGPT, Prompt Memory saves your messages in the background. When you start a new conversation and begin typing something related, a small message appears asking if you want to inject that previous context into your current message. no copy-pasting, no digging through old tabs.
+The picture below showcases the succesfull condensing of a question about napolean
 
 ![Screenshot](assets/8A0D310E-4642-424F-82AA-4225572D81B7_1_201_a.jpeg)
 
