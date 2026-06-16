@@ -2,7 +2,7 @@ Prompt Memory:
 A Chrome extension that passively captures your AI conversations and surfaces relevant saved context when you start a related conversation so you never lose the thread of a previous session.
 all data stored locally in your browser, unless you CHOOSE to use an api
 Built with vanilla JavaScript and Chrome's Manifest V3 extension APIs.
-This project currently uses Cohere as the hardcoded LLM provider. Cohere is the recommended for simplicities sake and because they affer a free tier of usage, making it accessable to everyone. simply paste your own api key into the filed under options, and get started withe the ai summarization functionality. (this feature is optional, and without a key, full conversations will simply be stored in your browser, with older ones being condensed and then deleted)
+This project currently uses Cohere as the hardcoded LLM provider. Cohere is the recommended for simplicities sake and because they affer a free tier of usage, making it accessable to everyone. simply paste your own api key into the field  in options, and get started with the ai summarization functionality, freeing up space for the storage of more conversations. (this feature is optional, and without a key, full conversations will simply be stored in your browser, with older ones being condensed and then deleted)
 
 What it does:
 When you chat on Claude or ChatGPT, Prompt Memory saves your messages in the background. When you start a new conversation and begin typing something related, a small message appears asking if you want to inject that previous context into your current message. no copy-pasting, no digging through old tabs.
